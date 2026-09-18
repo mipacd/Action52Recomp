@@ -1,0 +1,33 @@
+file_offset,cpu_address,bank,kind,name,evidence,notes
+0x805A1,0x8591,menu,table,menu_launch_table,static,52 fixed-width launch records; CPU address assumes bank begins at file offset 0x80010
+0x180010,,chr,data,chr_rom_start,static,64 banks of 8192 bytes
+0x70010,0x8000,prg_28,code_data,cheetahmen_opening_lower,observed,Physical PRG bank mapped at $8000 after launch through original menu
+0x74010,0xC000,prg_29,code_data,cheetahmen_opening_upper,observed,Physical PRG bank mapped at $C000 after launch through original menu
+0x1EC010,0x0000,chr_54,graphics,cheetahmen_opening_chr,observed,8 KiB CHR bank visible during first story panel
+0x701CC,0x81BC,prg_28,code,cheetahmen_opening_dispatch,static,Six-page opening state dispatcher
+0x71199,0x9189,prg_28,code,cheetahmen_opening_write_text,static,Writes one transformed story-text tile per NMI
+0x71625,0x9615,prg_28,pointer,cheetahmen_intro_track,static,Points to four-channel descriptor at $9617
+0x71E71,0x9E61,prg_28,code,sound_request_track,static,Queues music track index
+0x71E79,0x9E69,prg_28,code,sound_enable_vblank_update,static,Enables sound update flag
+0x71E86,0x9E76,prg_28,code,sound_initialize,static,Initializes shared Action 52 sound driver
+0x7238A,0xA37A,prg_28,code,sound_update,static,Per-NMI music and SFX update
+0x724F6,0xA4E6,prg_28,data,sound_note_periods,static,Little-endian 2A03 timer-period table
+0x40010,0x8000,prg_16_17,code_data,cheetahmen_playable_program,static,Ghidra GAME_BANK_08 overlay; mode selector and level-one engine
+0x45673,0xD663,prg_17,data,cheetahmen_game_descriptor,static,Root descriptor loaded at reset
+0x44024,0xC014,prg_17,data,cheetahmen_level_one_map_descriptor,static,Seven-screen map and metatile resource pointers
+0x44EC6,0xCEB6,prg_17,data,cheetahmen_level_one_metatiles,static,Four tile indices per metatile
+0x4573D,0xD72D,prg_17,pointer,cheetahmen_level_one_palette_cycle,static,Points to initial palette at $D733
+0x43E30,0xBE20,prg_16,pointer,cheetahmen_note_period_tables,static,Per-channel note-period table pointers
+0x45727,0xD717,prg_17,pointer,cheetahmen_sound_tracks,static,Track zero points to descriptor $E389
+0x45D13,0xDD03,prg_17,data,cheetahmen_mode_select_palette,static,32-byte selector palette; background palette 3 provides red text
+0x45166,0xD156,prg_17,data,aries_entity_definition,static,Entity definition 2 points to first standing cel at $D164
+0x45174,0xD164,prg_17,data,aries_standing_cel,static,$11 sprite count followed by OAM-like records at $D165
+0x450CA,0xD0BA,prg_17,data,cheetahmen_enemy_entity_definition,static,Preliminary enemy scaffold uses first cel pointer $D0C8 and records at $D0C9
+0x46399,0xE389,prg_17,data,cheetahmen_level_one_track,static,Four-channel descriptor; streams branch to $E396 with $FF repeat sentinel
+0x456ED,0xD6DD,prg_17,data,cheetahmen_level_one_subdescriptor,static,Initial player coordinates at offsets 4-5 are $8F,$C1
+0x45E54,0xDE44,prg_17,data,cheetahmen_stage_sprite_palette,static,Four sprite palettes used by level-one metasprites
+0x42922,0xA912,prg_16,code,transition_cheetahmen_character_intro,static,Generates Aries panel and selects CHR 52 through mapper address $840D
+0x46045,0xE035,prg_17,data,aries_instruction_map,static,16x15 metatile map for the Aries instruction panel
+0x45F9B,0xDF8B,prg_17,data,aries_instruction_metatiles,static,Four tile indices per instruction-panel metatile
+0x46145,0xE135,prg_17,data,aries_instruction_palette,static,16-byte instruction-panel palette
+0x462D1,0xE2C1,prg_17,text,aries_instruction_text,static,199 characters terminated by $FF and revealed one per frame

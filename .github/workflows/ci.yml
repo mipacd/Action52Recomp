@@ -1,0 +1,22 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: libsdl-org/setup-sdl@main
+        with:
+          install-linux-dependencies: true
+          version: 3-latest
+      - name: Configure
+        run: cmake -S . -B build -DA52_FETCH_SDL=OFF -DA52_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+

@@ -1,0 +1,15 @@
+/build/
+/out/
+/generated-assets/
+/local-re/
+/.cache/
+*.nes
+*.NES
+*.cdl
+*.trace
+*.wav
+*.obj
+/action52.cfg
+/Action52old/
+/MesenCE/
+*.pdb
