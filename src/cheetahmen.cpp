@@ -246,7 +246,6 @@ void Cheetahmen::tickStageMusic() {
             // descriptor start belonging to this channel.
             state.pc=state.loopStart;
             state.returnPc=0;
-            state.patternTable=0;
             state.loopCommand=0;
             state.loopRemaining=0;
             state.duration=0;
@@ -364,8 +363,16 @@ void Cheetahmen::drawLevelIntro(PixelBuffer& target) const {
   };
   // RenderCheetahmenLevelLabel writes "LEVEL" at encoded VRAM position $46.
   text(12,8,"LEVEL 1");
-  text(10,13,"PLAYER 1");
-  text(11,15,"000000");
+  // $DBF7 writes the lives digit plus " PLAYER 1" at encoded VRAM
+  // position $63 ($2186, tile 6/12). $DC59 writes six score digits at
+  // $69 ($2192, tile 18/12).
+  const char lives=static_cast<char>('0'+std::min<std::uint8_t>(state_.lives,9));
+  std::array<char,11> playerLine{lives,' ','P','L','A','Y','E','R',' ','1','\0'};
+  text(6,12,playerLine.data());
+  std::array<char,7> score{};
+  auto value=state_.score;
+  for (int i=5;i>=0;--i) { score[static_cast<std::size_t>(i)]=static_cast<char>('0'+value%10); value/=10; }
+  text(18,12,score.data());
 }
 
 void Cheetahmen::drawCharacterIntroText(PixelBuffer& target,std::size_t characters) const {
@@ -408,7 +415,10 @@ void Cheetahmen::drawMenuTile(PixelBuffer& target,int x0,int y0,std::uint8_t til
 void Cheetahmen::drawGameTile(PixelBuffer& target,int x0,int y0,std::uint8_t tile,
                               bool background,std::uint8_t attributes) const {
   const auto chrBase=static_cast<std::size_t>(background?4096:0)+static_cast<std::size_t>(tile)*16;
-  const auto paletteBase=static_cast<std::size_t>((background?0xD733:0xDE44)-0x8000);
+  // The map descriptor's palette at $CE96 contains 16 background bytes
+  // followed by the four sprite palettes at $CEA6. Palette 0 is the
+  // black/white/yellow palette used by Aries.
+  const auto paletteBase=static_cast<std::size_t>((background?0xD733:0xCEA6)-0x8000);
   for (int y=0;y<8;++y) for (int x=0;x<8;++x) {
     const int px=x0+x,py=y0+y;
     if (px<0||px>=target.width||py<0||py>=target.height) continue;
@@ -640,17 +650,52 @@ void Cheetahmen::tick(const FrameInput& input) {
     paused_=true; pausePage_=pauseSelection_=0; pauseMessageFrames_=0; eventCount_=0; return;
   }
   tickStageMusic();
-  if (fixes_ && fixes_->enabled("cheetahmen.responsive_controls", profile_)) tickRemake(pad); else tickOriginal(pad);
-  state_.x += state_.vx; state_.y += state_.vy;
+  if (pad.wasPressed(Button::A) && state_.attackFrames==0) {
+    state_.attackFrames=11; // two five-frame cels after this tick's decrement
+  }
+  if (state_.attackFrames) {
+    state_.vx=state_.vy=0;
+    --state_.attackFrames;
+  } else if (fixes_ && fixes_->enabled("cheetahmen.responsive_controls", profile_)) tickRemake(pad);
+  else tickOriginal(pad);
+  if (pad.isHeld(Button::Right)) state_.facing=0;
+  else if (pad.isHeld(Button::Up)) state_.facing=1;
+  else if (pad.isHeld(Button::Left)) state_.facing=2;
+  else if (pad.isHeld(Button::Down)) state_.facing=3;
+  const auto blocked=[&](int x,int y) {
+    constexpr int halfWidth=9,halfHeight=6;
+    const int cellsWide=stageWorldWidth_/16;
+    const auto solid=[&](int px,int py) {
+      if (px<0||py<0||px>=stageWorldWidth_||py>=256) return true;
+      const auto cell=static_cast<std::size_t>((py/16)*cellsWide+px/16);
+      return (stageCollision_[cell]&0xf3)==1;
+    };
+    if (solid(x-halfWidth,y-halfHeight)||solid(x+halfWidth,y-halfHeight)||
+        solid(x-halfWidth,y+halfHeight)||solid(x+halfWidth,y+halfHeight)) return true;
+    for (std::size_t i=0;i<stageMarkers_.size()&&i<32;++i) {
+      const auto entity=stageMarkers_[i].entity;
+      if (entity>=17) continue;
+      const int entityHalfWidth=gamePrg_[0xD785-0x8000+entity];
+      const int entityHalfHeight=gamePrg_[0xD796-0x8000+entity];
+      if (std::abs(x-static_cast<int>(stageMarkers_[i].x))<=halfWidth+entityHalfWidth&&
+          std::abs(y-static_cast<int>(stageMarkers_[i].y))<=halfHeight+entityHalfHeight) return true;
+    }
+    return false;
+  };
+  const int proposedX=state_.x+state_.vx;
+  if (!blocked(proposedX/kUnit,state_.y/kUnit)) state_.x=proposedX;
+  else state_.vx=0;
+  const int proposedY=state_.y+state_.vy;
+  if (!blocked(state_.x/kUnit,proposedY/kUnit)) state_.y=proposedY;
+  else state_.vy=0;
+  if (state_.vx||state_.vy) ++state_.playerAnimFrame;
   state_.y=std::clamp(state_.y,0x12*kUnit,0xf4*kUnit);
   state_.x = std::clamp(state_.x,kLeft,std::max(kLeft,(stageWorldWidth_-12)*kUnit));
   const int desiredScroll=std::clamp(state_.x/kUnit-0x95,0,std::max(0,stageWorldWidth_-kLogicalWidth));
-  if (fixes_ && fixes_->enabled("cheetahmen.smooth_scrolling",profile_)) {
-    const int desired=desiredScroll*kUnit;
-    const int difference=desired-state_.cameraX;
-    state_.cameraX+=difference/4;
-    if (difference && state_.cameraX==desired-difference) state_.cameraX+=difference>0?1:-1;
-  } else state_.cameraX=desiredScroll*kUnit;
+  // Both paths track the cartridge's pixel scroll target directly. Remake's
+  // improvement is the atomic full-frame redraw, which avoids nametable seams
+  // without introducing the lag/judder of an eased camera.
+  state_.cameraX=desiredScroll*kUnit;
   if (state_.y<0xb1*kUnit) state_.achievements|=4;
   if (cheatInvincible_) state_.health=4;
   if (cheatInfiniteLives_) state_.lives=9;
@@ -707,23 +752,28 @@ void Cheetahmen::render(PixelBuffer& target) const {
   };
   // Entity definition 2 at $D156 points to cel $D164.  Its first byte is
   // the $11 sprite count; the OAM-like records begin at $D165.
-  const auto entityCel=[&](std::uint8_t entity)->std::pair<std::uint16_t,int> {
+  const auto entityCel=[&](std::uint8_t entity,std::uint32_t clock)->std::pair<std::uint16_t,int> {
     if (entity>=17) return {0,0};
     const auto definition=wordAt(gamePrg_,static_cast<std::uint16_t>(0xD641+entity*2));
     const auto frameCount=gamePrg_[definition-0x8000];
     const auto frameDelay=std::max<std::uint8_t>(1,gamePrg_[definition-0x8000+1]);
-    const auto frame=static_cast<std::uint8_t>((state_.frame/frameDelay)%frameCount);
+    const auto frame=static_cast<std::uint8_t>((clock/frameDelay)%frameCount);
     const auto cel=wordAt(gamePrg_,static_cast<std::uint16_t>(definition+4+frame*2));
     return {static_cast<std::uint16_t>(cel+1),gamePrg_[cel-0x8000]};
   };
-  for (const auto& marker:stageMarkers_) {
+  for (std::size_t markerIndex=0;markerIndex<stageMarkers_.size();++markerIndex) {
+    const auto& marker=stageMarkers_[markerIndex];
     const int markerX=static_cast<int>(marker.x)-scroll;
     if (markerX < -40 || markerX > kLogicalWidth+40) continue;
-    const auto [records,count]=entityCel(marker.entity);
+    const auto [records,count]=entityCel(marker.entity,state_.frame);
     if (records && count) drawMetasprite(markerX,marker.y,records,count);
   }
-  drawMetasprite(px,py,0xD165,17);
-  fillRect(target,0,0,2,2,0xffff0000u);
+  const bool attacking=state_.attackFrames!=0;
+  const auto playerEntity=static_cast<std::uint8_t>(attacking?(state_.facing==0?3:4):2);
+  const auto playerClock=attacking?static_cast<std::uint32_t>(10-state_.attackFrames):
+                                   static_cast<std::uint32_t>(state_.vx||state_.vy?state_.playerAnimFrame:0);
+  const auto [playerRecords,playerCount]=entityCel(playerEntity,playerClock);
+  drawMetasprite(px,py,playerRecords,playerCount);
   if (state_.flags & 1) {
     fillRect(target, 28, 82, 200, 60, 0xff000000u);
     drawText(target, 72, 100, "ALL STAGES CLEAR", 0xffffd060u, 1);
@@ -737,7 +787,7 @@ std::vector<std::byte> Cheetahmen::serialize() const {
   std::vector<std::byte> out; out.reserve(256);
   appendLe(out, state_.x); appendLe(out, state_.y); appendLe(out, state_.vx); appendLe(out, state_.vy);
   appendLe(out, state_.rng); appendLe(out, state_.score); appendLe(out, state_.frame); appendLe(out, state_.stage);
-  appendLe(out,state_.openingFrame); appendLe(out,state_.phaseFrame); appendLe(out,state_.cameraX); appendLe(out, state_.lives); appendLe(out, state_.health); appendLe(out, state_.flags); appendLe(out,state_.phase); appendLe(out,state_.selection); appendLe(out,state_.achievements);
+  appendLe(out,state_.openingFrame); appendLe(out,state_.phaseFrame); appendLe(out,state_.cameraX); appendLe(out, state_.lives); appendLe(out, state_.health); appendLe(out, state_.flags); appendLe(out,state_.phase); appendLe(out,state_.selection); appendLe(out,state_.achievements); appendLe(out,state_.playerAnimFrame); appendLe(out,state_.attackFrames); appendLe(out,state_.facing);
   appendLe(out, static_cast<std::uint8_t>(menuRequested_)); appendLe(out, static_cast<std::uint8_t>(jumpBuffer_)); appendLe(out, static_cast<std::uint8_t>(coyoteFrames_));
   appendLe(out,static_cast<std::uint8_t>(paused_)); appendLe(out,pausePage_); appendLe(out,pauseSelection_); appendLe(out,pauseMessageFrames_);
   appendLe(out,static_cast<std::uint8_t>(cheatInvincible_)); appendLe(out,static_cast<std::uint8_t>(cheatInfiniteLives_)); appendLe(out,static_cast<std::uint8_t>(hasSave_));
@@ -756,7 +806,7 @@ std::vector<std::byte> Cheetahmen::serialize() const {
   appendLe(out,savedState_.x); appendLe(out,savedState_.y); appendLe(out,savedState_.vx); appendLe(out,savedState_.vy);
   appendLe(out,savedState_.rng); appendLe(out,savedState_.score); appendLe(out,savedState_.frame); appendLe(out,savedState_.openingFrame); appendLe(out,savedState_.phaseFrame);
   appendLe(out,savedState_.cameraX); appendLe(out,savedState_.stage); appendLe(out,savedState_.lives); appendLe(out,savedState_.health);
-  appendLe(out,savedState_.flags); appendLe(out,savedState_.phase); appendLe(out,savedState_.selection); appendLe(out,savedState_.achievements);
+  appendLe(out,savedState_.flags); appendLe(out,savedState_.phase); appendLe(out,savedState_.selection); appendLe(out,savedState_.achievements); appendLe(out,savedState_.playerAnimFrame); appendLe(out,savedState_.attackFrames); appendLe(out,savedState_.facing);
   for (const auto& music:savedStageMusic_) {
     appendLe(out,music.pc); appendLe(out,music.loopStart); appendLe(out,music.returnPc); appendLe(out,music.patternTable);
     appendLe(out,music.loopCommand); appendLe(out,music.duration); appendLe(out,music.note);
@@ -770,7 +820,7 @@ bool Cheetahmen::deserialize(std::span<const std::byte> input) {
   std::uint8_t menu{}, jump{}, coyote{},paused{},invincible{},infiniteLives{},hasSave{};
   if (!readLe(input,state_.x)||!readLe(input,state_.y)||!readLe(input,state_.vx)||!readLe(input,state_.vy)||
       !readLe(input,state_.rng)||!readLe(input,state_.score)||!readLe(input,state_.frame)||!readLe(input,state_.stage)||!readLe(input,state_.openingFrame)||!readLe(input,state_.phaseFrame)||!readLe(input,state_.cameraX)||
-      !readLe(input,state_.lives)||!readLe(input,state_.health)||!readLe(input,state_.flags)||!readLe(input,state_.phase)||!readLe(input,state_.selection)||!readLe(input,state_.achievements)||!readLe(input,menu)||
+      !readLe(input,state_.lives)||!readLe(input,state_.health)||!readLe(input,state_.flags)||!readLe(input,state_.phase)||!readLe(input,state_.selection)||!readLe(input,state_.achievements)||!readLe(input,state_.playerAnimFrame)||!readLe(input,state_.attackFrames)||!readLe(input,state_.facing)||!readLe(input,menu)||
       !readLe(input,jump)||!readLe(input,coyote)||!readLe(input,paused)||!readLe(input,pausePage_)||!readLe(input,pauseSelection_)||!readLe(input,pauseMessageFrames_)||
       !readLe(input,invincible)||!readLe(input,infiniteLives)||!readLe(input,hasSave)) return false;
   for (auto& music:openingMusic_) {
@@ -792,7 +842,7 @@ bool Cheetahmen::deserialize(std::span<const std::byte> input) {
   if (!readLe(input,savedState_.x)||!readLe(input,savedState_.y)||!readLe(input,savedState_.vx)||!readLe(input,savedState_.vy)||
       !readLe(input,savedState_.rng)||!readLe(input,savedState_.score)||!readLe(input,savedState_.frame)||!readLe(input,savedState_.openingFrame)||!readLe(input,savedState_.phaseFrame)||
       !readLe(input,savedState_.cameraX)||!readLe(input,savedState_.stage)||!readLe(input,savedState_.lives)||!readLe(input,savedState_.health)||
-      !readLe(input,savedState_.flags)||!readLe(input,savedState_.phase)||!readLe(input,savedState_.selection)||!readLe(input,savedState_.achievements)) return false;
+      !readLe(input,savedState_.flags)||!readLe(input,savedState_.phase)||!readLe(input,savedState_.selection)||!readLe(input,savedState_.achievements)||!readLe(input,savedState_.playerAnimFrame)||!readLe(input,savedState_.attackFrames)||!readLe(input,savedState_.facing)) return false;
   for (auto& music:savedStageMusic_) {
     std::uint8_t active{},audible{};
     if (!readLe(input,music.pc)||!readLe(input,music.loopStart)||!readLe(input,music.returnPc)||!readLe(input,music.patternTable)||

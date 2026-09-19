@@ -12,6 +12,11 @@ Bug Fixes preset until a trace or repeatable test confirms it.
 | `frontend.intro_pcm_seam` | Play the ROM-decoded 29,999-sample title loop without an audible host-side buffer gap. | PRG playback routine and `$4011` trace; the decoded loop endpoints meet at DAC level 64. | Implemented for all profiles. This corrects host playback and is not a gameplay change. |
 | `cheetahmen.selector_palette` | Use the selector's palette at `$DD03` rather than the level palette at `$D733`. | `RenderCheetahmenModeSelect` installs `$DD03`; the previous native renderer incorrectly shared the stage palette. | Implemented for all profiles; this is a reconstruction correction. |
 | `cheetahmen.sprite_transparency` | Treat sprite color zero as transparent and begin the Aries cel records at `$D165`. | Entity definition 2 points to `$D164`; `$D164=$11` is the count and the first OAM record is `$D165`. | Implemented for all profiles; this removes the black tile rectangles. |
+| `cheetahmen.map_entities` | Decode map-triggered actors through `$D064` and animate their ROM metasprites through `$D641`. | The stage streamer calls `$B1F2` for each entering metatile; `$FF` is scenery and IDs 5-11 select the level actors. | Implemented for all profiles; replaces the former duplicate-Aries placeholders and restores animated foreground/water actors. |
+| `cheetahmen.stage_sprite_palette` | Use the sprite half of the level palette at `$CEA6`. | `$CE96` is the 32-byte palette named by the level map descriptor; its second half is the PPU sprite palette. `$DE44` was a misclassified table. | Implemented for all profiles; Aries palette 0 is black, white, and yellow. |
+| `cheetahmen.player_animation` | Advance Aries' two standing/running cels only when movement invokes the cartridge animation update, and select attack definitions 3/4 on A. | `$8A2C` advances the entity cel from movement handlers; `$B479` replaces entity 2 with the attack entity selected through `$D6C8`. | Implemented for all profiles. |
+| `cheetahmen.level_card_layout` | Place `LEVEL 1`, lives/player, and the six-digit score at the ROM VRAM coordinates. | `$D9F3` writes at `$46`; `$DBF7` writes lives + ` PLAYER 1` at `$63`; `$DC59` writes the score at `$69`. | Implemented for all profiles. |
+| `cheetahmen.basic_collision` | Block movement on map collision class 1 and against active map entities using the ROM's per-entity extents. | `$8D2E/$8D60` query `$D00E`; the directional handlers reject class 1. `$D785/$D796` provide horizontal/vertical extents. | Implemented for all profiles; special tiles, damage, and attack hit resolution still need full engine reconstruction. |
 
 ## Cheetahmen: Bug Fixes profile
 
@@ -30,7 +35,7 @@ evidence and independent regression tests exist.
 |---|---|---|---|---|
 | `cheetahmen.responsive_controls` | Acceleration and deceleration on both axes of the isometric first-stage movement plane. | Disabled | Enabled by default | Implemented; tuning will be revisited as later-stage movement modes are classified. |
 | `cheetahmen.skip_opening` | Press Start during the story sequence to jump to the one/two-player selection screen. | Disabled | Enabled by default | Implemented; does not alter story assets or gameplay state. |
-| `cheetahmen.smooth_scrolling` | Ease the pixel-precise camera toward the cartridge scroll target. | Uses immediate pixel scrolling. | Enabled by default | Implemented with a full-frame background redraw, avoiding partially updated nametable seams. |
+| `cheetahmen.smooth_scrolling` | Redraw the pixel-precise camera atomically. | Uses immediate pixel scrolling. | Uses the same responsive tracking while avoiding partially updated nametable seams. | Implemented without the former eased-camera lag. |
 | `cheetahmen.pause_menu` | Start opens an in-game menu using the cartridge selector font and palette, with resume, in-memory save/load, cheats, achievements, game menu, and main menu. Select cycles and Start activates, matching the Cheetahmen selector. | Unavailable | Enabled | Implemented. Cheats and save-slot contents are included in deterministic serialization. |
 
 ## Change procedure

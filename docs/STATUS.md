@@ -18,7 +18,7 @@
   screenshot is loaded by the runtime.
 - Cheetahmen's exact ROM-written one/two-player/main-menu selector and its
   Select/Start behavior are implemented from `GAME_BANK_08`. Level one's seven
-  screen background, initial palette, standing Aries metasprite, and track-zero
+  screen background, initial palette, animated Aries metasprite, and track-zero
   music stream are decoded from PRG banks 16-17 and CHR bank 46.
 - The selector now uses its `$DD03` red palette. Sprite color zero is transparent,
   and the Aries cel records correctly begin after the count byte at `$D165`.
@@ -27,16 +27,16 @@
   `$E135`, CHR 52, and the 199-byte text stream at `$E2C1`.
 - Level one starts Aries at descriptor coordinates `$8F,$C1`, uses isometric
   four-direction movement without platformer gravity, rotates the three ROM
-  water palettes, and uses sprite palette `$DE44`.
+  water palettes, and uses the level's sprite palette at `$CEA6`. Class-1 map
+  cells now block Aries using the ROM's entity-2 collision extents.
 - Remake has a ROM-font pause menu controlled with Select/Start, deterministic
   in-memory save/load, cheats, achievements, game-menu/main-menu exits, and
-  eased integer scrolling.
-- The provisional duplicate-Aries enemies were removed. Authentic spawn placement,
-  enemy definitions, movement, and AI still require classification.
-- The one-player trace also confirms a character-specific Aries instruction
-  panel between player selection and stage play; it is captured but not yet
-  implemented in the native flow.
-
+  responsive full-frame scrolling without the former eased-camera lag.
+- Level-one map markers are decoded through the ROM's entity-ID table at `$D064`.
+  Their actual metasprites and frame timing come from the `$D641` definition table;
+  this restores the animated water/foreground actors and removes the former
+  duplicate-Aries placeholders. Full hostile movement, collision, and AI remain
+  under classification.
 ## Required before calling milestone one faithful
 
 1. Continue Ghidra decompilation from the mapper-aware Cheetahmen bank overlay;

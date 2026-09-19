@@ -22,12 +22,16 @@ file_offset,cpu_address,bank,kind,name,evidence,notes
 0x45D13,0xDD03,prg_17,data,cheetahmen_mode_select_palette,static,32-byte selector palette; background palette 3 provides red text
 0x45166,0xD156,prg_17,data,aries_entity_definition,static,Entity definition 2 points to first standing cel at $D164
 0x45174,0xD164,prg_17,data,aries_standing_cel,static,$11 sprite count followed by OAM-like records at $D165
-0x450CA,0xD0BA,prg_17,data,cheetahmen_enemy_entity_definition,static,Preliminary enemy scaffold uses first cel pointer $D0C8 and records at $D0C9
+0x450CA,0xD0BA,prg_17,data,cheetahmen_entity_definition_1,static,Entity ID 1 definition; no longer assumed to be a generic enemy
 0x46399,0xE389,prg_17,data,cheetahmen_level_one_track,static,Four-channel descriptor; streams branch to $E396 with $FF repeat sentinel
 0x456ED,0xD6DD,prg_17,data,cheetahmen_level_one_subdescriptor,static,Initial player coordinates at offsets 4-5 are $8F,$C1
-0x45E54,0xDE44,prg_17,data,cheetahmen_stage_sprite_palette,static,Four sprite palettes used by level-one metasprites
+0x44EB6,0xCEA6,prg_17,data,cheetahmen_stage_sprite_palette,static,Sprite half of the 32-byte level palette at $CE96; palette 0 is black white yellow
 0x42922,0xA912,prg_16,code,transition_cheetahmen_character_intro,static,Generates Aries panel and selects CHR 52 through mapper address $840D
 0x46045,0xE035,prg_17,data,aries_instruction_map,static,16x15 metatile map for the Aries instruction panel
 0x45F9B,0xDF8B,prg_17,data,aries_instruction_metatiles,static,Four tile indices per instruction-panel metatile
 0x46145,0xE135,prg_17,data,aries_instruction_palette,static,16-byte instruction-panel palette
 0x462D1,0xE2C1,prg_17,text,aries_instruction_text,static,199 characters terminated by $FF and revealed one per frame
+0x45074,0xD064,prg_17,data,cheetahmen_metatile_entity_ids,static,Entity ID per level-one metatile; $FF denotes ordinary scenery
+0x45651,0xD641,prg_17,pointer,cheetahmen_entity_definitions,static,Pointer table for entity animation and metasprite definitions
+0x43202,0xB1F2,prg_16,code,spawn_cheetahmen_map_entity,static,Converts streamed metatile markers into entity state and placement
+0x43489,0xB479,prg_16,code,handle_cheetahmen_attack,static,A-button handler selects attack entity 3 or 4 through the $D6C8 table

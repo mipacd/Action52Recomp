@@ -10,7 +10,7 @@ FixRegistry::FixRegistry()
                    {"cheetahmen.clean_intro_transitions", "Rebuild Cheetahmen intro screens atomically instead of showing the cartridge's one-frame pattern/palette mismatch", true, true},
                    {"cheetahmen.music_loop", "Loop each stage-music channel to its own descriptor start instead of the cartridge's shared pulse-one destination", true, true},
                    {"cheetahmen.responsive_controls", "Use accelerated and decelerated isometric movement", false, true},
-                   {"cheetahmen.smooth_scrolling", "Use sub-tile eased camera tracking during Cheetahmen stages", false, true},
+                   {"cheetahmen.smooth_scrolling", "Redraw the complete scrolled background atomically to avoid nametable seams", false, true},
                    {"cheetahmen.skip_opening", "Allow Start to skip the Cheetahmen story sequence", false, true}} {
   for (const auto& fix : definitions_) overrides_.emplace(fix.id, std::nullopt);
 }

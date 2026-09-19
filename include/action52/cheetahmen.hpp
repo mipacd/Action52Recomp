@@ -41,6 +41,9 @@ class Cheetahmen final : public GameModule {
     std::uint8_t phase{};
     std::uint8_t selection{};
     std::uint8_t achievements{};
+    std::uint16_t playerAnimFrame{};
+    std::uint8_t attackFrames{};
+    std::uint8_t facing{};
   } state_{};
 
   BehaviorProfile profile_{BehaviorProfile::Original};

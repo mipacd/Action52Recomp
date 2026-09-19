@@ -45,10 +45,10 @@ The one-player path establishes this order:
 6. A character-specific instruction panel beginning with Aries and his wooden
    clubs before stage play.
 
-The native runtime currently reproduces steps 1-5 from those PRG/CHR tables,
+The native runtime reproduces all six steps from those PRG/CHR tables,
 including the Original profile's one-frame transition corruption. It does not
-use captured frames. Step 6 is not yet shown; the level-one renderer is decoded
-below, while its full behavior is still being classified.
+use captured frames. The Aries panel expands `$E035` through `$DF8B`, uses CHR
+52, and reveals the 199-byte `$E2C1` text one character per frame.
 
 ## Playable program and level one
 
@@ -68,8 +68,11 @@ where `$11` is the sprite count and the records begin at `$D165`; sprite color
 zero is transparent. The first level subdescriptor at `$D6DD` supplies starting
 coordinates `$8F,$C1`; its input table routes horizontal and vertical directions
 separately, so the opening area uses planar/isometric movement rather than gravity.
-Movement collision shapes, authentic entity spawning, enemy AI,
-and animation routines are still being classified.
+The stage streamer calls `$B1F2` for every entering metatile. `$D064` maps that
+metatile to an entity ID (`$FF` means scenery), while `$D641` maps IDs to the
+actual frame lists and metasprites. The native renderer uses those tables for
+the foreground/water actors and their cartridge frame timing. Hostile movement,
+collision, combat, and AI are still being classified.
 
 The mode selector installs the 32-byte palette at `$DD03`. Palette 3
 (`$0F,$05,$15,$25`) is used for its red text and cursor; the level palette at `$D733` must
@@ -92,6 +95,9 @@ The stage score's four channel streams all end with `C0 96 E3 FF`: a branch to
 pulse 1's `$E396` stream with repeat count `$FF`. Original preserves that shared
 destination. `cheetahmen.music_loop` treats it as an indefinite top-level repeat
 to each channel's own descriptor start in Bug Fixes and Remake.
+Only pulse 1 begins with the shared pattern-table command at `$E396`; channels
+2-4 depend on that shared state. Fixed looping therefore preserves the pattern
+table while resetting each channel's call/loop state.
 
 `TransitionCheetahmenStage` at `$A912` selects CHR 52 and calls the generator at
 `$E145`. That generator expands map `$E035` through definitions `$DF8B` and
@@ -100,7 +106,7 @@ attributes `$E013`; `$E135` supplies the palette. `$E25F` then reveals the
 
 ## Next classification work
 
-- Continue classifying collision, player animation, enemy, and attack routines
+- Continue classifying collision, enemy movement, and attack routines
   from the first playable frame in `GAME_BANK_08`.
 - Split banks 28-29 into code, pointer tables, text, music/SFX sequences, and
   level/entity data.
